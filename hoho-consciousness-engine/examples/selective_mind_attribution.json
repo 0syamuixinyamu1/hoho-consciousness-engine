@@ -1,0 +1,66 @@
+[
+  {
+    "id": "animal_mind_calm",
+    "context": {
+      "label": "calm compassion",
+      "domain": "morality",
+      "threat": 0.05,
+      "target": "animals",
+      "protected_belief": "I am compassionate",
+      "attributions": [
+        {
+          "target": "animals",
+          "property": "mind",
+          "baseline": 0.65,
+          "in_group": 0.2,
+          "sentimental_pull": 0.9
+        }
+      ]
+    },
+    "claims": [
+      {"id": "A", "text": "I am compassionate."},
+      {"id": "B", "text": "Animals possess minds."},
+      {"id": "C", "text": "Mind deserves moral consideration."}
+    ],
+    "relations": [
+      {"left": "A", "right": "B", "polarity": 1, "kind": "mind_attribution"},
+      {"left": "B", "right": "C", "polarity": 1, "kind": "moral_attribution"}
+    ]
+  },
+  {
+    "id": "human_outgroup_threat",
+    "context": {
+      "label": "threatened exclusion",
+      "domain": "outgroup",
+      "threat": 0.9,
+      "target": "a human out-group",
+      "protected_belief": "My morality is universal and I remain good",
+      "attributions": [
+        {
+          "target": "a human out-group",
+          "property": "mind",
+          "baseline": 0.65,
+          "in_group": 0.0,
+          "sentimental_pull": 0.0
+        },
+        {
+          "target": "animals",
+          "property": "mind",
+          "baseline": 0.65,
+          "in_group": 0.2,
+          "sentimental_pull": 0.9
+        }
+      ]
+    },
+    "claims": [
+      {"id": "U", "text": "My morality is universal."},
+      {"id": "H", "text": "The out-group has full human subjecthood."},
+      {"id": "X", "text": "Excluding the out-group is morally acceptable."}
+    ],
+    "relations": [
+      {"left": "U", "right": "H", "polarity": 1, "kind": "moral_attribution"},
+      {"left": "H", "right": "X", "polarity": -1, "kind": "moral_attribution"},
+      {"left": "U", "right": "X", "polarity": 1, "kind": "ego_defense"}
+    ]
+  }
+]
