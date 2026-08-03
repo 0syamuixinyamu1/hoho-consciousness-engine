@@ -1,0 +1,10 @@
+name = "HohoConsciousness"
+uuid = "7da9be17-70ca-4dca-9838-49f8a3127c68"
+authors = ["HOHO"]
+version = "0.1.0"
+
+[deps]
+Statistics = "10745b16-91a9-54a9-bb6f-89f4d0f98b98"
+
+[compat]
+julia = "1.10"

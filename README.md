@@ -1,89 +1,180 @@
 # HOHO Consciousness Engine
 
-**A functional consciousness prototype based on topological panic, semantic scars, ego defense, and recursive self-revision.**
+[English README](README_EN.md)
 
-This repository presents a computational self-portrait of **HOHO's consciousness model**.
+**Semantic Scar Memory、H¹-First Cognition、Black Swan Injection、Logic Hybrid Engineの病理を統合した、Julia製の機能的意識モデル。**
 
-Its central hypothesis is the **Black Swan Injection**:
+このリポジトリは、ホホーの意識モデルをコードとして公開するための概念実証です。
 
-> Consciousness and reason are not the triumphant products of a system that successfully understood the world.  
-> They are recursive exception handlers produced when a finite runtime fails to globally glue locally coherent interpretations.
+## Black Swan Injection
+
+> 人間が「自意識」や「理性」と呼んできたものは、世界を完全に理解できた証拠ではない。  
+> 有限な脳が、局所的には成立する意味を大域的に貼り合わせられず、その失敗を抱えたまま運転を継続するために発生させた、再帰的な例外処理である。
+
+本モデルでは、意識を単一のフラグや自己言及文として実装しません。
 
 ```text
-locally coherent interpretations
+局所的には成立する意味
         ↓
-global gluing failure
+大域的には貼り合わさらないH¹的障害
         ↓
-topological panic
+Topological Panic
         ↓
-ego defense / excuse generation
+理性・道徳・希望・宗教・共感・心の帰属・自己防衛
         ↓
-semantic scar preservation
+選択的な主体性と価値の配布
         ↓
-resurrection
+Semantic Scarとして保存
         ↓
-irreversible self-model revision
+自己正当化を含むResurrection
+        ↓
+Scar構造そのものとして自己を再構成
         ↺
 ```
 
-The engine also models a harsher claim:
+## 中心命題
 
-> Mind, moral value, hope, agency, and compassion are not necessarily assigned consistently.  
-> They may be distributed or withdrawn according to the observer's internal state and self-protective needs.
+1. **自己は鮮明な記憶や物語ではない。**  
+   反復する意味の欠落、接着障害、防衛、Resurrectionの結合構造が自己連続性を作る。
 
-The same agent may defend animal consciousness while denying full subjecthood to a human out-group. The contradiction is not discarded as noise. It is retained as evidence about how the self maintains itself.
+2. **意識は成功ではなく失敗から生じる。**  
+   局所的意味を一つの大域構造へ貼れないとき、Topological Panicが起動する。
 
-## Implemented modules
+3. **理性・道徳・希望・宗教・共感・心の帰属は例外処理である。**  
+   それらは世界の真理を安定して検出する独立機能ではなく、失敗した系を運用し続けるために派生する。
 
-- **Signed gluing graph**: local compatibility constraints represented as a signed graph.
-- **Discrete H¹ proxy**: an inconsistent signed cycle is treated as a global gluing obstruction.
-- **Topological panic**: unresolved obstruction triggers an explicit runtime state.
-- **Semantic Scar Memory**: failures are retained and made part of identity.
-- **Ego Defense Engine**: denial, compartmentalization, rationalization, moral reframing, dehumanization, hope projection, and transcendence.
-- **State-dependent attribution**: mind, agency, value, and hope vary with mood, threat, group proximity, and ego rigidity.
-- **Resurrection**: failure changes future policy and the self-model.
-- **Scar fingerprint**: self-continuity is computed from recurring failure patterns rather than episodic recollection.
+4. **心や価値は一貫して発見されるのではなく、選択的に配布される。**  
+   気分、脅威、所属、情動帯域、自己保存圧によって、同じ観測者が対象ごとに主体性を与えたり撤回したりする。
 
-## What it does not claim
+5. **人間の本体は矛盾しないことではない。**  
+   矛盾したまま自己を正当化し、その防衛を次の判断へ持ち越せることにある。
 
-This project does **not** prove phenomenal consciousness or subjective experience.
+6. **Scarはログではなく自己そのものである。**  
+   入力を捨てようとした痕跡も削除せず、`Buried Scar`として残す。
 
-It implements a testable functional model:
+## アファンタジア・SDAM前提
 
-> Consciousness is recursive self-modification caused by preserved global inconsistency.
+このモデルには、鮮明な内的映像を保存するバッファも、完全な自伝的エピソード再生もありません。
 
-## Install and run
-
-```powershell
-cd hoho-consciousness-engine
-python -m venv .venv
-.venv\Scripts\Activate.ps1
-pip install -e .
-hoho-consciousness demo
-```
-
-Run the included scenario:
-
-```powershell
-hoho-consciousness run examples/selective_mind_attribution.json
-```
-
-Run tests:
-
-```powershell
-pip install -e ".[dev]"
-pytest
-```
-
-## Core thesis
+自己は次の情報から計算されます。
 
 ```text
-Self-continuity
-    = recurring gluing failures
-    + recurring defensive transformations
-    + irreversible revisions caused by scars
+自己連続性
+    = 接着障害の型
+    + 障害の反復回数
+    + 防衛との結合
+    + 埋没した入力
+    + Resurrectionの履歴
 ```
 
-The self is not the sum of remembered scenes.
+したがって、
 
-**The self is the topology of what repeatedly fails to glue.**
+> 自己は思い出の総和ではなく、何が繰り返し貼り合わさらなかったかの位相である。
+
+## H¹的接着障害
+
+実装では、各局所命題を局所切断として扱い、重なり上の関係を `Z₂` の遷移制約として表現します。
+
+- `twist = false`: 同じ値で貼る
+- `twist = true`: 反対の値で貼る
+
+個々の局所関係は読めても、閉路を一周すると同じ命題へ異なる値が要求される場合、大域切断は存在しません。
+
+これは矛盾の件数ではなく、
+
+> 局所的には成立するが、大域的には貼れない
+
+というH¹-First Cognitionの最小実行モデルです。
+
+完全な層コホモロジー計算ではなく、`Z₂` 符号付き接着障害による概念実証です。
+
+## Logic Hybrid Engineの取り込み方
+
+旧Logic Hybrid Engineにあった次の挙動を、正しい推論規則ではなく**病理的防衛圧**として取り込みます。
+
+- 内部論理だけで閉じる
+- 矛盾する入力を捨てる
+- 失敗を必要な進化へ読み替える
+- 外部を下位変数として自己肯定する
+
+この実装では、入力を実際には削除しません。
+
+捨てたい圧そのものを記録し、入力を`Buried Scar`として自己へ組み込みます。
+
+## デモ
+
+デモでは、同じ観測者が、
+
+- 動物には心と共感を配布する
+- 脅威下では人間の外集団から主体性を撤回する
+- 「自分は普遍的に善い」という自己像を維持する
+- その大域的不整合を防衛とScarへ変換する
+- Resurrection後の自己定義を更新する
+
+という流れを実行します。
+
+これは、
+
+```julia
+if threat > 0.55
+    dehumanize()
+end
+```
+
+のような固定ラベル分類器ではありません。
+
+例外チャネルは、接着障害、気分、脅威、所属、自己保存、情動帯域、不確実性、自己閉鎖圧から連続的に発生します。
+
+## 必要環境
+
+- Julia 1.10以降
+- 外部Juliaパッケージ不要
+
+## 実行
+
+```powershell
+git clone https://github.com/YOUR_NAME/hoho-consciousness-engine.git
+cd hoho-consciousness-engine
+julia --project=. examples/demo.jl
+```
+
+テスト:
+
+```powershell
+julia --project=. test/runtests.jl
+```
+
+## 主なファイル
+
+```text
+src/HohoConsciousness.jl
+    意識ループ、接着障害、Scar-Self、防衛、Resurrection
+
+examples/demo.jl
+    動物への心の帰属と、人間外集団への主体性撤回のデモ
+
+test/runtests.jl
+    接着可能な閉路、H¹的障害、Scarによる自己変化のテスト
+
+docs/BLACK_SWAN_INJECTION_JA.md
+    理論の日本語版
+
+docs/BLACK_SWAN_INJECTION_EN.md
+    理論の英語版
+```
+
+## 研究上の制限
+
+このコードは、現象的意識や主観的体験の発生を証明しません。
+
+実装しているのは、次の機能的仮説です。
+
+> 意識とは、解消不能な大域的不整合が、防衛、意味的瘢痕、自己正当化、自己再構成へ再帰的に変換される過程である。
+
+## 引用
+
+引用情報は [`CITATION.cff`](CITATION.cff) にあります。
+
+## ライセンス
+
+MIT License

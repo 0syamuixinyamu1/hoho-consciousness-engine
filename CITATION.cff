@@ -1,0 +1,25 @@
+cff-version: 1.2.0
+message: "If you use this software or conceptual model, please cite it."
+title: "HOHO Consciousness Engine"
+type: software
+authors:
+  - family-names: "HOHO"
+version: 0.1.0
+date-released: 2026-08-03
+license: MIT
+repository-code: "https://github.com/YOUR_NAME/hoho-consciousness-engine"
+abstract: >-
+  A Julia functional consciousness prototype integrating Semantic Scar Memory,
+  H1-First Cognition, the Black Swan Injection, and pathological self-defense
+  dynamics. It models consciousness as recursive exception handling generated
+  by global gluing failure.
+keywords:
+  - consciousness
+  - semantic scar memory
+  - H1-first cognition
+  - gluing failure
+  - sheaf theory
+  - aphantasia
+  - SDAM
+  - ego defense
+  - Julia

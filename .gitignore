@@ -1,8 +1,16 @@
-.venv/
-__pycache__/
-*.py[cod]
-.pytest_cache/
-dist/
-build/
-*.egg-info/
-state.json
+# Julia
+Manifest.toml
+*.cov
+*.mem
+*.jl.cov
+deps/deps.jl
+
+# Editors and OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# Generated output
+output/
+*.log

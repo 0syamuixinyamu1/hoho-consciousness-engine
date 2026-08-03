@@ -1,0 +1,20 @@
+{
+  ".github/workflows/julia-tests.yml": 574,
+  ".gitignore": 144,
+  "CHANGELOG.md": 559,
+  "CITATION.cff": 742,
+  "GITHUB_DESCRIPTION.txt": 232,
+  "GITHUB_OVERWRITE_EN.md": 668,
+  "GITHUB_OVERWRITE_JA.md": 1540,
+  "LICENSE": 1061,
+  "Project.toml": 195,
+  "README.md": 5998,
+  "README_EN.md": 5598,
+  "docs/ARCHITECTURE_EN.md": 1655,
+  "docs/ARCHITECTURE_JA.md": 1584,
+  "docs/BLACK_SWAN_INJECTION_EN.md": 3471,
+  "docs/BLACK_SWAN_INJECTION_JA.md": 3566,
+  "examples/demo.jl": 3535,
+  "src/HohoConsciousness.jl": 39402,
+  "test/runtests.jl": 3674
+}
