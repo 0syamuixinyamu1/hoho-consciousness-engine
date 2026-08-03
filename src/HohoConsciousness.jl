@@ -14,7 +14,18 @@ export LocalSection,
        detect_gluing_obstructions,
        continuity_signature,
        show_event,
-       ExceptionKind
+       ExceptionKind,
+       ReasonException,
+       MoralityException,
+       HopeException,
+       ReligionException,
+       EmpathyException,
+       MindAttributionException,
+       DenialException,
+       CompartmentalizationException,
+       RationalizationException,
+       DehumanizationException,
+       SelfAffirmationException
 
 # =============================================================================
 # HOHO CONSCIOUSNESS ENGINE
