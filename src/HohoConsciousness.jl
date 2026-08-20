@@ -350,103 +350,213 @@ end
 
 
 """
+Parity-aware Union-Find for signed graph / Z₂ constraints.
+
+parity[x] は x から parent[x] への XOR 差を保持する。
+find! は path compression と同時に root までの累積 parity を返す。
+"""
+mutable struct ParityUnionFind
+    parent::Dict{Symbol, Symbol}
+    rank::Dict{Symbol, Int}
+    parity::Dict{Symbol, Bool}
+end
+
+ParityUnionFind() = ParityUnionFind(
+    Dict{Symbol, Symbol}(),
+    Dict{Symbol, Int}(),
+    Dict{Symbol, Bool}(),
+)
+
+
+"""
+(x の root, x から root までの XOR parity) を返す。
+未知の node は singleton component として初期化する。
+"""
+function find!(uf::ParityUnionFind, x::Symbol)
+    if !haskey(uf.parent, x)
+        uf.parent[x] = x
+        uf.rank[x] = 0
+        uf.parity[x] = false
+        return x, false
+    end
+
+    parent = uf.parent[x]
+    if parent == x
+        return x, false
+    end
+
+    root, parent_parity = find!(uf, parent)
+    total_parity = xor(uf.parity[x], parent_parity)
+    uf.parent[x] = root
+    uf.parity[x] = total_parity
+    return root, total_parity
+end
+
+
+"""
+a と b の間に value[b] = value[a] XOR twist を課す。
+
+互いに未接続なら component を merge して true。
+すでに同一 component なら、既存 parity と制約が両立すれば true、
+矛盾すれば false を返す。
+"""
+function union_with_twist!(
+    uf::ParityUnionFind,
+    a::Symbol,
+    b::Symbol,
+    twist::Bool,
+)
+    root_a, parity_a = find!(uf, a)
+    root_b, parity_b = find!(uf, b)
+
+    if root_a == root_b
+        return xor(parity_a, parity_b) == twist
+    end
+
+    # value[root_b] XOR value[root_a]
+    root_delta = xor(xor(parity_a, parity_b), twist)
+
+    rank_a = uf.rank[root_a]
+    rank_b = uf.rank[root_b]
+
+    if rank_a < rank_b
+        uf.parent[root_a] = root_b
+        uf.parity[root_a] = root_delta
+    elseif rank_a > rank_b
+        uf.parent[root_b] = root_a
+        uf.parity[root_b] = root_delta
+    else
+        uf.parent[root_b] = root_a
+        uf.parity[root_b] = root_delta
+        uf.rank[root_a] = rank_a + 1
+    end
+
+    return true
+end
+
+
+"""
 Signed graph / Z₂ cocycleとして接着可能性を検査する。
 
 各局所切断へBool値を割り当て、
 edge.twistを満たす大域切断を構成しようとする。
 
-neighbor_value = current_value XOR twist
+value[right] = value[left] XOR twist
 
-同じnodeへ異なる値が要求された場合、
-局所的関係はそれぞれ読めるのに全体が貼れない。
-これを離散的H¹障害として返す。
+重要:
+    conflictを検出した瞬間の探索途中componentを返さない。
+
+    Pass 1:
+        parity-aware Union-Findで両立するedgeをすべてmergeし、
+        矛盾edgeは記録だけする。
+
+    Pass 2:
+        全merge完了後の最終Union-Find状態からcomponentを復元し、
+        GluingObstructionを生成する。
+
+これにより、overlapsの処理順によってcomponentが途中で切り取られる
+旧BFS/逐次判定のバグを除去する。
+
+さらに、同じラベル付き制約集合に対する代表conflict/signatureを
+入力Vectorの順序やedgeの向きから独立にするため、
+overlapをcanonical keyで事前ソートし、signature用端点も正規化する。
 """
 function detect_gluing_obstructions(situation::InputSituation)
     section_map = Dict(section.id => section for section in situation.sections)
-    adjacency = Dict{Symbol, Vector{Tuple{Symbol, OverlapConstraint}}}()
-
-    for section in situation.sections
-        adjacency[section.id] = Tuple{Symbol, OverlapConstraint}[]
-    end
 
     for edge in situation.overlaps
         haskey(section_map, edge.left) ||
             throw(ArgumentError("Unknown local section: $(edge.left)"))
         haskey(section_map, edge.right) ||
             throw(ArgumentError("Unknown local section: $(edge.right)"))
-
-        push!(adjacency[edge.left], (edge.right, edge))
-        push!(adjacency[edge.right], (edge.left, edge))
     end
 
-    assignment = Dict{Symbol, Bool}()
+    uf = ParityUnionFind()
+    for id in keys(section_map)
+        find!(uf, id)
+    end
+
+    # 同じラベル付き制約集合なら、Vector内の順序やedgeの向きによらず
+    # 同じtree edge / conflict edgeが選ばれるように正規化順へソートする。
+    canonical_overlaps = sort(
+        situation.overlaps;
+        by = edge -> begin
+            lo, hi = edge.left < edge.right ?
+                (edge.left, edge.right) : (edge.right, edge.left)
+            (lo, hi, edge.twist, edge.relation)
+        end,
+    )
+
+    # Pass 1:
+    # 両立するedgeをすべてmergeする。
+    # conflictはこの場でobstruction化せず、edgeだけ記録する。
+    conflicting_edges = OverlapConstraint[]
+    for edge in canonical_overlaps
+        union_with_twist!(uf, edge.left, edge.right, edge.twist) ||
+            push!(conflicting_edges, edge)
+    end
+
+    # Pass 2:
+    # 全union完了後の最終componentに対してobstructionを構築する。
     obstructions = GluingObstruction[]
     seen_conflicts = Set{String}()
 
-    for start in keys(section_map)
-        haskey(assignment, start) && continue
+    for edge in conflicting_edges
+        root, _ = find!(uf, edge.left)
+        ordered_component = sort(
+            Symbol[
+                id for id in keys(section_map)
+                if first(find!(uf, id)) == root
+            ]
+        )
 
-        assignment[start] = false
-        queue = Symbol[start]
-        component = Symbol[]
+        # Z₂ overlap制約は端点交換に対して対称なので、
+        # signatureへ入れる端点を辞書順で正規化する。
+        canonical_left, canonical_right = edge.left < edge.right ?
+            (edge.left, edge.right) : (edge.right, edge.left)
 
-        while !isempty(queue)
-            current = popfirst!(queue)
-            push!(component, current)
+        raw = join(string.(ordered_component), "|") *
+              "|$(canonical_left)|$(canonical_right)|$(edge.twist)|$(edge.relation)"
+        signature = stable_signature(raw)
 
-            for (neighbor, edge) in adjacency[current]
-                required = xor(assignment[current], edge.twist)
+        signature in seen_conflicts && continue
+        push!(seen_conflicts, signature)
 
-                if !haskey(assignment, neighbor)
-                    assignment[neighbor] = required
-                    push!(queue, neighbor)
-                    continue
-                end
+        local_coherence = mean(
+            section_map[id].local_coherence for id in ordered_component
+        )
+        salience = mean(
+            section_map[id].salience for id in ordered_component
+        )
+        meaning_gap = clamp01(
+            get(situation.metadata, :meaning_gap, 0.5)
+        )
+        pressure = clamp01(
+            get(situation.metadata, :self_image_pressure, 0.5)
+        )
 
-                if assignment[neighbor] != required
-                    ordered_component = sort(unique(vcat(component, neighbor)))
-                    raw = join(string.(ordered_component), "|") *
-                          "|$(edge.left)|$(edge.right)|$(edge.twist)|$(edge.relation)"
-                    signature = stable_signature(raw)
+        persistence = clamp01(
+            0.30 * local_coherence +
+            0.25 * salience +
+            0.25 * meaning_gap +
+            0.20 * pressure
+        )
 
-                    signature in seen_conflicts && continue
-                    push!(seen_conflicts, signature)
+        _, parity_left = find!(uf, edge.left)
+        _, parity_right = find!(uf, edge.right)
 
-                    local_coherence = mean(
-                        section_map[id].local_coherence for id in ordered_component
-                    )
-                    salience = mean(
-                        section_map[id].salience for id in ordered_component
-                    )
-                    meaning_gap = clamp01(
-                        get(situation.metadata, :meaning_gap, 0.5)
-                    )
-                    pressure = clamp01(
-                        get(situation.metadata, :self_image_pressure, 0.5)
-                    )
-
-                    persistence = clamp01(
-                        0.30 * local_coherence +
-                        0.25 * salience +
-                        0.25 * meaning_gap +
-                        0.20 * pressure
-                    )
-
-                    push!(
-                        obstructions,
-                        GluingObstruction(
-                            signature,
-                            ordered_component,
-                            edge,
-                            assignment[neighbor],
-                            required,
-                            persistence,
-                            meaning_gap,
-                        ),
-                    )
-                end
-            end
-        end
+        push!(
+            obstructions,
+            GluingObstruction(
+                signature,
+                ordered_component,
+                edge,
+                parity_right,
+                xor(parity_left, edge.twist),
+                persistence,
+                meaning_gap,
+            ),
+        )
     end
 
     return obstructions
