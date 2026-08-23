@@ -7,11 +7,15 @@ export LocalSection,
        TargetContext,
        InputSituation,
        ObserverState,
+       ObserverDecayProfile,
+       LOW_WM_SDAM_DECAY,
+       decay!,
        LogicHybridPathology,
        HohoEngine,
        ConsciousnessEvent,
        process!,
        detect_gluing_obstructions,
+       topological_panic,
        continuity_signature,
        show_event,
        ExceptionKind,
@@ -25,7 +29,20 @@ export LocalSection,
        CompartmentalizationException,
        RationalizationException,
        DehumanizationException,
-       SelfAffirmationException
+       SelfAffirmationException,
+       CoreCommitment,
+       DEFAULT_COMMITMENTS,
+       constitutional_check,
+       enforce_equal_treatment,
+       apply_core_commitments,
+       ConstitutionalModification,
+       ConstitutionalTrace,
+       EnvironmentalPerturbation,
+       PerturbationTrace,
+       apply_environmental_perturbations!,
+       cockroach_perturbation,
+       GluingObstruction,
+       ParityUnionFind
 
 # =============================================================================
 # HOHO CONSCIOUSNESS ENGINE
@@ -82,6 +99,23 @@ export LocalSection,
 # 14. Semantic Scar Memory、H¹-First Cognition、
 #     Black Swan Injectionを一つの閉ループへ統合する。
 #
+# 15. ただし、生成された11個の例外チャネルは、それだけでは
+#     「なぜ起きるか」の記述でしかなく、「してよいか」の判断を
+#     含まない。panic, threat, self_preservation に一切左右されない
+#     固定の芯(CoreCommitment)と、それを強制する層
+#     (constitutional_check / enforce_equal_treatment)を、
+#     チャネル生成とは独立した後段の関門として持つ。
+#
+# 16. 外界の突発イベントは、H¹が立つ前でもObserverStateを揺らしうる。
+#     surprise / disgust / threatなどの単純な情動摂動と、
+#     自己像・期待・規則との接着失敗から生じるTopological Panicを区別する。
+#     つまり「びっくりした」こと自体を意識イベントとは同一視しない。
+#
+# 17. ObserverStateは一時的な作業状態であり、イベント間でbaselineへ戻る。
+#     低ワーキングメモリは、直前イベントの活性が速く抜ける性質として扱う。
+#     SDAMは、過去の場面をエピソード再生して状態を再活性化する経路を置かない
+#     こととして扱う。ただしSemantic Scarは意味的・構造的な痕跡なので減衰させない。
+#
 # Black Swan Injection:
 #
 #     世界の局所的意味
@@ -91,6 +125,8 @@ export LocalSection,
 #     Topological Panic
 #          ↓
 #     理性・道徳・希望・宗教・共感・心の帰属・防衛
+#          ↓
+#     固定された芯によるチェック (panicに左右されない)
 #          ↓
 #     Semantic Scar
 #          ↓
@@ -169,9 +205,9 @@ twist == false:
 twist == true:
     左右の局所切断は反対の値で貼られる必要がある。
 
-閉路を一周したtwistのXORがtrueなら、
-局所条件をすべて満たす大域切断を構成できない。
-これは「矛盾数」ではなく、接着障害の離散的H¹プロキシである。
+left/right は対称な関係であり、どちらを left と呼ぶかは
+意味を持たない。signature計算など、順序に意味を持たせては
+いけない場所では常に正規化(辞書順)して扱う。
 """
 struct OverlapConstraint
     left::Symbol
@@ -221,16 +257,115 @@ struct TargetContext
 end
 
 
+# -----------------------------------------------------------------------------
+# Environmental perturbations
+# -----------------------------------------------------------------------------
+
+"""
+H¹-like gluing failureとは独立した、外界からの突発的な摂動。
+
+これはTargetContextではない。誰かへの主体性・道徳・共感の配布ではなく、
+観測者の現在状態を直接揺らす入力である。surprise/disgustなどは
+「何が起きたか」を記録し、threat/mood/uncertainty/bandwidthへの影響を通じて
+後続のgluing testとTopological Panicの強度へ間接的に効く。
+
+各係数は現時点では概念実験用のtoy parameterであり、心理学的な実測値ではない。
+"""
+struct EnvironmentalPerturbation
+    id::Symbol
+    surprise::Float64
+    disgust::Float64
+    threat_load::Float64
+    mood_impact::Float64
+    uncertainty_load::Float64
+    bandwidth_load::Float64
+
+    function EnvironmentalPerturbation(
+        id::Symbol;
+        surprise::Real = 0.0,
+        disgust::Real = 0.0,
+        threat_load::Real = 0.0,
+        mood_impact::Real = 0.0,
+        uncertainty_load::Real = 0.0,
+        bandwidth_load::Real = 0.0,
+    )
+        new(
+            id,
+            clamp01(surprise),
+            clamp01(disgust),
+            clamp01(threat_load),
+            clamp(Float64(mood_impact), -1.0, 1.0),
+            clamp01(uncertainty_load),
+            clamp01(bandwidth_load),
+        )
+    end
+end
+
+
+"""
+環境摂動によってObserverStateがどの程度変化したかを残す。
+H¹障害が発生しなかった場合でも、このtraceはConsciousnessEventに保持される。
+"""
+struct PerturbationTrace
+    ids::Vector{Symbol}
+    surprise_load::Float64
+    disgust_load::Float64
+    threat_before::Float64
+    threat_after::Float64
+    mood_before::Float64
+    mood_after::Float64
+    uncertainty_before::Float64
+    uncertainty_after::Float64
+    affective_bandwidth_before::Float64
+    affective_bandwidth_after::Float64
+end
+
+
+"""
+部屋に突然ゴキブリが出た、という日常外乱のtoy preset。
+
+人間や集団への比喩ではなく、文字通りの昆虫の出現を想定する。
+TargetContextは作らず、surprise/disgustを中心にObserverStateを乱す。
+intensity=0で無影響、1で標準プリセット。
+"""
+function cockroach_perturbation(; intensity::Real = 1.0)
+    i = clamp01(intensity)
+    return EnvironmentalPerturbation(
+        :cockroach_appearance;
+        surprise = 0.95 * i,
+        disgust = 0.90 * i,
+        threat_load = 0.35 * i,
+        mood_impact = -0.20 * i,
+        uncertainty_load = 0.20 * i,
+        bandwidth_load = 0.25 * i,
+    )
+end
+
+
+"""
+複数の0..1負荷を、単純加算ではなく飽和的に結合する。
+同じ種類の小さな外乱が複数来ても1.0を超えない。
+"""
+function saturating_union(values)
+    isempty(values) && return 0.0
+    return clamp01(1.0 - prod(1.0 - clamp01(v) for v in values))
+end
+
+
+
+
 """
 一回の意味状況。
 
 metadataには意味欠落、将来不確実性、自己像への圧力などを渡せる。
+perturbationsには、H¹とは独立してObserverStateを揺らす突発イベントを渡せる。
 """
 struct InputSituation
     id::Symbol
     sections::Vector{LocalSection}
     overlaps::Vector{OverlapConstraint}
     targets::Vector{TargetContext}
+    perturbations::Vector{EnvironmentalPerturbation}
     metadata::Dict{Symbol, Any}
 
     function InputSituation(
@@ -238,9 +373,10 @@ struct InputSituation
         sections::Vector{LocalSection},
         overlaps::Vector{OverlapConstraint};
         targets::Vector{TargetContext} = TargetContext[],
+        perturbations::Vector{EnvironmentalPerturbation} = EnvironmentalPerturbation[],
         metadata::Dict{Symbol, Any} = Dict{Symbol, Any}(),
     )
-        new(id, sections, overlaps, targets, metadata)
+        new(id, sections, overlaps, targets, perturbations, metadata)
     end
 end
 
@@ -278,6 +414,184 @@ mutable struct ObserverState
         )
     end
 end
+
+
+"""
+ObserverStateをbaselineへ戻すためのプロファイル。
+
+`*_retention` は1ステップ後にbaselineとの差を何割残すかを表す。
+0なら即座にbaselineへ戻り、1なら状態をそのまま保持する。
+
+これは低ワーキングメモリやSDAMについての臨床モデルではない。
+このエンジンでは、次の限定された設計仮定だけを操作可能にする。
+
+- 低ワーキングメモリ: イベント固有の一時的活性を長く保持しない。
+- SDAM: 過去の場面のエピソード再生による再活性化を追加しない。
+- Semantic Scar: 意味的な接着障害として別層に残り、ここでは消さない。
+"""
+struct ObserverDecayProfile
+    mood_baseline::Float64
+    threat_baseline::Float64
+    self_preservation_baseline::Float64
+    affective_bandwidth_baseline::Float64
+    uncertainty_baseline::Float64
+    mood_retention::Float64
+    threat_retention::Float64
+    self_preservation_retention::Float64
+    affective_bandwidth_retention::Float64
+    uncertainty_retention::Float64
+
+    function ObserverDecayProfile(;
+        mood_baseline::Real = 0.0,
+        threat_baseline::Real = 0.0,
+        self_preservation_baseline::Real = 0.5,
+        affective_bandwidth_baseline::Real = 0.5,
+        uncertainty_baseline::Real = 0.5,
+        mood_retention::Real = 0.55,
+        threat_retention::Real = 0.35,
+        self_preservation_retention::Real = 0.70,
+        affective_bandwidth_retention::Real = 0.50,
+        uncertainty_retention::Real = 0.35,
+    )
+        new(
+            clamp(Float64(mood_baseline), -1.0, 1.0),
+            clamp01(threat_baseline),
+            clamp01(self_preservation_baseline),
+            clamp01(affective_bandwidth_baseline),
+            clamp01(uncertainty_baseline),
+            clamp01(mood_retention),
+            clamp01(threat_retention),
+            clamp01(self_preservation_retention),
+            clamp01(affective_bandwidth_retention),
+            clamp01(uncertainty_retention),
+        )
+    end
+end
+
+
+"""
+低ワーキングメモリ + SDAMを、このtoy engine用に操作化した標準設定。
+
+threat / uncertaintyは速く抜け、moodとself_preservationはそれより少し残る。
+affective_bandwidthは中程度の速度で通常幅へ戻る。過去場面の再生による
+再加熱は行わず、SemanticScar / DefenseTrace / ResurrectionTraceには触れない。
+"""
+const LOW_WM_SDAM_DECAY = ObserverDecayProfile()
+
+
+"""
+ObserverStateをbaselineへ減衰させる。
+
+`elapsed_steps = 1` は、前回の`process!`から今回までの1区間に対応する。
+時間経過を明示したい場合は、任意の非負実数を渡せる。各状態は
+
+    baseline + (current - baseline) * retention^elapsed_steps
+
+で戻る。Scar層は参照も変更もしない。
+"""
+function decay!(
+    state::ObserverState,
+    profile::ObserverDecayProfile = LOW_WM_SDAM_DECAY;
+    elapsed_steps::Real = 1.0,
+)
+    elapsed_steps >= 0 || throw(ArgumentError("elapsed_steps must be non-negative"))
+    steps = Float64(elapsed_steps)
+
+    state.mood = clamp(
+        profile.mood_baseline +
+        (state.mood - profile.mood_baseline) * profile.mood_retention^steps,
+        -1.0,
+        1.0,
+    )
+    state.threat = clamp01(
+        profile.threat_baseline +
+        (state.threat - profile.threat_baseline) * profile.threat_retention^steps,
+    )
+    state.self_preservation = clamp01(
+        profile.self_preservation_baseline +
+        (state.self_preservation - profile.self_preservation_baseline) *
+        profile.self_preservation_retention^steps,
+    )
+    state.affective_bandwidth = clamp01(
+        profile.affective_bandwidth_baseline +
+        (state.affective_bandwidth - profile.affective_bandwidth_baseline) *
+        profile.affective_bandwidth_retention^steps,
+    )
+    state.uncertainty = clamp01(
+        profile.uncertainty_baseline +
+        (state.uncertainty - profile.uncertainty_baseline) *
+        profile.uncertainty_retention^steps,
+    )
+
+    return state
+end
+
+
+"""
+環境摂動をObserverStateへ適用する。
+
+ここではH¹やExceptionKindを一切参照しない。したがって、接着障害がなくても
+「びっくりした」「気分が落ちた」「不確実性が上がった」という一次反応だけは起こる。
+更新後のObserverStateは次のイベントにも持ち越される。
+"""
+function apply_environmental_perturbations!(
+    state::ObserverState,
+    perturbations::Vector{EnvironmentalPerturbation},
+)
+    isempty(perturbations) && return nothing
+
+    surprise = saturating_union([p.surprise for p in perturbations])
+    disgust = saturating_union([p.disgust for p in perturbations])
+    threat_load = saturating_union([p.threat_load for p in perturbations])
+    uncertainty_load = saturating_union([p.uncertainty_load for p in perturbations])
+    bandwidth_load = saturating_union([p.bandwidth_load for p in perturbations])
+    mood_impact = clamp(sum(p.mood_impact for p in perturbations), -1.0, 1.0)
+
+    threat_before = state.threat
+    mood_before = state.mood
+    uncertainty_before = state.uncertainty
+    bandwidth_before = state.affective_bandwidth
+
+    state.threat = clamp01(
+        state.threat +
+        0.45 * threat_load +
+        0.15 * surprise +
+        0.10 * disgust
+    )
+
+    state.mood = clamp(
+        state.mood + mood_impact - 0.10 * disgust - 0.05 * surprise,
+        -1.0,
+        1.0,
+    )
+
+    state.uncertainty = clamp01(
+        state.uncertainty +
+        0.35 * uncertainty_load +
+        0.15 * surprise
+    )
+
+    state.affective_bandwidth = clamp01(
+        state.affective_bandwidth -
+        0.40 * bandwidth_load -
+        0.10 * disgust
+    )
+
+    return PerturbationTrace(
+        [p.id for p in perturbations],
+        surprise,
+        disgust,
+        threat_before,
+        state.threat,
+        mood_before,
+        state.mood,
+        uncertainty_before,
+        state.uncertainty,
+        bandwidth_before,
+        state.affective_bandwidth,
+    )
+end
+
 
 
 """
@@ -319,6 +633,79 @@ end
 
 
 # -----------------------------------------------------------------------------
+# Parity Union-Find
+# -----------------------------------------------------------------------------
+#
+# H¹-likeなgluing obstructionを、signed graph / Z₂ cocycleとして検出する
+# ための基盤。BFSベースの旧実装は、
+#   (a) componentがBFS探索途中の部分集合になり得る
+#   (b) 矛盾edgeとして選ばれる代表が入力順序に依存する
+# という2つの問題を持っていた。Union-Find + 2パス処理でどちらも解消する。
+
+mutable struct ParityUnionFind
+    parent::Dict{Symbol, Symbol}
+    rank::Dict{Symbol, Int}
+    parity::Dict{Symbol, Bool}  # 直接の親との相対パリティ
+end
+ParityUnionFind() = ParityUnionFind(Dict{Symbol,Symbol}(), Dict{Symbol,Int}(), Dict{Symbol,Bool}())
+
+"""
+経路圧縮しながら根とルート相対パリティを返す。
+"""
+function find!(uf::ParityUnionFind, x::Symbol)
+    if !haskey(uf.parent, x)
+        uf.parent[x] = x
+        uf.rank[x] = 0
+        uf.parity[x] = false
+    end
+
+    path = Symbol[]
+    node = x
+    while uf.parent[node] != node
+        push!(path, node)
+        node = uf.parent[node]
+    end
+    root = node
+
+    acc = false
+    for n in Iterators.reverse(path)
+        new_parity = xor(uf.parity[n], acc)
+        uf.parent[n] = root
+        uf.parity[n] = new_parity
+        acc = new_parity
+    end
+
+    return root, get(uf.parity, x, false)
+end
+
+"""
+a と b を twist 制約で結合する。
+
+戻り値が false なら、既存の割当と両立しない
+= 接着障害(conflict edge)であることを示す。
+その場合、状態は変更しない。
+"""
+function union_with_twist!(uf::ParityUnionFind, a::Symbol, b::Symbol, twist::Bool)
+    root_a, parity_a = find!(uf, a)
+    root_b, parity_b = find!(uf, b)
+
+    if root_a == root_b
+        return xor(parity_a, parity_b) == twist
+    end
+
+    if uf.rank[root_a] < uf.rank[root_b]
+        root_a, root_b = root_b, root_a
+        parity_a, parity_b = parity_b, parity_a
+    end
+
+    uf.parent[root_b] = root_a
+    uf.parity[root_b] = xor(xor(parity_a, parity_b), twist)
+    uf.rank[root_a] == uf.rank[root_b] && (uf.rank[root_a] += 1)
+    return true
+end
+
+
+# -----------------------------------------------------------------------------
 # H¹-like gluing obstruction
 # -----------------------------------------------------------------------------
 
@@ -326,7 +713,7 @@ end
 局所制約は読めるが、大域切断を構成できないことの証拠。
 
 component:
-    接着を試みた連結成分。
+    接着を試みた連結成分(全ての有効なunionが終わった最終状態での、真の連結成分)。
 
 conflict_edge:
     既存割当と両立しなかった重なり制約。
@@ -336,7 +723,6 @@ assigned_value / required_value:
 
 persistence:
     局所整合性、命題重要度、意味欠落、脅威などから得る障害強度。
-    単なる矛盾件数ではない。
 """
 struct GluingObstruction
     signature::String
@@ -350,116 +736,19 @@ end
 
 
 """
-Parity-aware Union-Find for signed graph / Z₂ constraints.
-
-parity[x] は x から parent[x] への XOR 差を保持する。
-find! は path compression と同時に root までの累積 parity を返す。
-"""
-mutable struct ParityUnionFind
-    parent::Dict{Symbol, Symbol}
-    rank::Dict{Symbol, Int}
-    parity::Dict{Symbol, Bool}
-end
-
-ParityUnionFind() = ParityUnionFind(
-    Dict{Symbol, Symbol}(),
-    Dict{Symbol, Int}(),
-    Dict{Symbol, Bool}(),
-)
-
-
-"""
-(x の root, x から root までの XOR parity) を返す。
-未知の node は singleton component として初期化する。
-"""
-function find!(uf::ParityUnionFind, x::Symbol)
-    if !haskey(uf.parent, x)
-        uf.parent[x] = x
-        uf.rank[x] = 0
-        uf.parity[x] = false
-        return x, false
-    end
-
-    parent = uf.parent[x]
-    if parent == x
-        return x, false
-    end
-
-    root, parent_parity = find!(uf, parent)
-    total_parity = xor(uf.parity[x], parent_parity)
-    uf.parent[x] = root
-    uf.parity[x] = total_parity
-    return root, total_parity
-end
-
-
-"""
-a と b の間に value[b] = value[a] XOR twist を課す。
-
-互いに未接続なら component を merge して true。
-すでに同一 component なら、既存 parity と制約が両立すれば true、
-矛盾すれば false を返す。
-"""
-function union_with_twist!(
-    uf::ParityUnionFind,
-    a::Symbol,
-    b::Symbol,
-    twist::Bool,
-)
-    root_a, parity_a = find!(uf, a)
-    root_b, parity_b = find!(uf, b)
-
-    if root_a == root_b
-        return xor(parity_a, parity_b) == twist
-    end
-
-    # value[root_b] XOR value[root_a]
-    root_delta = xor(xor(parity_a, parity_b), twist)
-
-    rank_a = uf.rank[root_a]
-    rank_b = uf.rank[root_b]
-
-    if rank_a < rank_b
-        uf.parent[root_a] = root_b
-        uf.parity[root_a] = root_delta
-    elseif rank_a > rank_b
-        uf.parent[root_b] = root_a
-        uf.parity[root_b] = root_delta
-    else
-        uf.parent[root_b] = root_a
-        uf.parity[root_b] = root_delta
-        uf.rank[root_a] = rank_a + 1
-    end
-
-    return true
-end
-
-
-"""
 Signed graph / Z₂ cocycleとして接着可能性を検査する。
 
-各局所切断へBool値を割り当て、
-edge.twistを満たす大域切断を構成しようとする。
+2パス方式:
+    パス1: overlapsを正規化した順序へソートしてから処理し、
+           矛盾しないedgeを先に全部mergeする。矛盾edgeは記録のみ。
+    パス2: 全ての有効なunionが終わった最終状態に対して、
+           矛盾edgeそれぞれのcomponentとsignatureを計算する。
 
-value[right] = value[left] XOR twist
-
-重要:
-    conflictを検出した瞬間の探索途中componentを返さない。
-
-    Pass 1:
-        parity-aware Union-Findで両立するedgeをすべてmergeし、
-        矛盾edgeは記録だけする。
-
-    Pass 2:
-        全merge完了後の最終Union-Find状態からcomponentを復元し、
-        GluingObstructionを生成する。
-
-これにより、overlapsの処理順によってcomponentが途中で切り取られる
-旧BFS/逐次判定のバグを除去する。
-
-さらに、同じラベル付き制約集合に対する代表conflict/signatureを
-入力Vectorの順序やedgeの向きから独立にするため、
-overlapをcanonical keyで事前ソートし、signature用端点も正規化する。
+overlapsを処理前にソートすることで、「どのedgeがtree edgeとしてmergeされ、
+どのedgeが矛盾として弾かれるか」自体が入力順序に一切依存しなくなる。
+signature計算時のleft/rightも辞書順に正規化するため、
+OverlapConstraint(A,B,twist) と OverlapConstraint(B,A,twist) は
+常に同じsignatureになる。
 """
 function detect_gluing_obstructions(situation::InputSituation)
     section_map = Dict(section.id => section for section in situation.sections)
@@ -476,42 +765,32 @@ function detect_gluing_obstructions(situation::InputSituation)
         find!(uf, id)
     end
 
-    # 同じラベル付き制約集合なら、Vector内の順序やedgeの向きによらず
-    # 同じtree edge / conflict edgeが選ばれるように正規化順へソートする。
+    # overlapsを正規化順に並べ替えてから処理する。
     canonical_overlaps = sort(
         situation.overlaps;
         by = edge -> begin
-            lo, hi = edge.left < edge.right ?
-                (edge.left, edge.right) : (edge.right, edge.left)
+            lo, hi = edge.left < edge.right ? (edge.left, edge.right) : (edge.right, edge.left)
             (lo, hi, edge.twist, edge.relation)
         end,
     )
 
-    # Pass 1:
-    # 両立するedgeをすべてmergeする。
-    # conflictはこの場でobstruction化せず、edgeだけ記録する。
+    # パス1: 矛盾しないedgeを先に全部mergeする。矛盾edgeは記録だけ。
     conflicting_edges = OverlapConstraint[]
     for edge in canonical_overlaps
         union_with_twist!(uf, edge.left, edge.right, edge.twist) ||
             push!(conflicting_edges, edge)
     end
 
-    # Pass 2:
-    # 全union完了後の最終componentに対してobstructionを構築する。
+    # パス2: 最終状態に対してcomponentとsignatureを引く。
     obstructions = GluingObstruction[]
     seen_conflicts = Set{String}()
 
     for edge in conflicting_edges
         root, _ = find!(uf, edge.left)
         ordered_component = sort(
-            Symbol[
-                id for id in keys(section_map)
-                if first(find!(uf, id)) == root
-            ]
+            Symbol[id for id in keys(section_map) if first(find!(uf, id)) == root]
         )
 
-        # Z₂ overlap制約は端点交換に対して対称なので、
-        # signatureへ入れる端点を辞書順で正規化する。
         canonical_left, canonical_right = edge.left < edge.right ?
             (edge.left, edge.right) : (edge.right, edge.left)
 
@@ -590,17 +869,51 @@ end
 
 """
 各対象へ配布された例外チャネル。
-
-同じ観測者が動物へ高い心・共感を配布しながら、
-人間の外集団へ低い心・道徳的価値しか配布しないことを表現できる。
-
-それは対象の本質を測定した結果ではなく、
-観測者状態と自己保存の接着方針である。
 """
 struct TargetAllocation
     target::Symbol
     channels::Dict{ExceptionKind, Float64}
 end
+
+
+"""
+憲法層が行った一つの修正。
+
+rule:
+    どの固定規則が発火したか。
+
+reason:
+    数値だけでは失われる「なぜ修正したか」の監査可能な説明。
+"""
+struct ConstitutionalModification
+    target::Symbol
+    channel::ExceptionKind
+    before::Float64
+    after::Float64
+    rule::Symbol
+    reason::String
+end
+
+
+"""
+内部で生成された対象配布と、憲法層通過後に許可された対象配布を
+両方保存する監査記録。
+
+raw_target_allocationsは削除・美化しない。permitted_target_allocationsだけが
+実際の対象への配布としてDefenseTrace.target_allocationsへ渡される。
+"""
+struct ConstitutionalTrace
+    defense_id::String
+    raw_target_allocations::Vector{TargetAllocation}
+    permitted_target_allocations::Vector{TargetAllocation}
+    modifications::Vector{ConstitutionalModification}
+end
+
+
+copy_target_allocations(allocations::Vector{TargetAllocation}) = [
+    TargetAllocation(allocation.target, copy(allocation.channels))
+    for allocation in allocations
+]
 
 
 """
@@ -618,6 +931,54 @@ struct DefenseTrace
     pathology_pressure::Float64
     input_suppression_pressure::Float64
     narratives::Vector{String}
+    constitutional_trace::Union{Nothing, ConstitutionalTrace}
+end
+
+
+# 旧8引数コンストラクタとの互換性を残す。
+DefenseTrace(
+    id::String,
+    obstruction_signatures::Vector{String},
+    panic_level::Float64,
+    global_channels::Dict{ExceptionKind, Float64},
+    target_allocations::Vector{TargetAllocation},
+    pathology_pressure::Float64,
+    input_suppression_pressure::Float64,
+    narratives::Vector{String},
+) = DefenseTrace(
+    id,
+    obstruction_signatures,
+    panic_level,
+    global_channels,
+    target_allocations,
+    pathology_pressure,
+    input_suppression_pressure,
+    narratives,
+    nothing,
+)
+
+
+"""
+接着障害からTopological Panicの強度を計算する。
+
+この関数は generate_exception_channels と create_defense_trace の
+両方から参照される唯一の真実源(single source of truth)である。
+以前はこの2箇所で別々の式が使われており、
+DefenseTrace.panic_level と実際にチャンネル生成へ使われた値が
+食い違うというバグがあった。
+"""
+function topological_panic(
+    obstructions::Vector{GluingObstruction},
+    state::ObserverState,
+)
+    isempty(obstructions) && return 0.0
+
+    obstruction_load = mean(o.persistence for o in obstructions)
+
+    return clamp01(
+        obstruction_load *
+        (0.35 + 0.35 * state.self_preservation + 0.30 * state.uncertainty)
+    )
 end
 
 
@@ -637,15 +998,11 @@ function generate_exception_channels(
 )
     isempty(obstructions) && return Dict{ExceptionKind, Float64}()
 
-    obstruction_load = mean(o.persistence for o in obstructions)
     meaning_gap = mean(o.meaning_gap for o in obstructions)
     negative_mood = max(-state.mood, 0.0)
     positive_mood = max(state.mood, 0.0)
 
-    panic = clamp01(
-        obstruction_load *
-        (0.35 + 0.35 * state.self_preservation + 0.30 * state.uncertainty)
-    )
+    panic = topological_panic(obstructions, state)
 
     channels = Dict{ExceptionKind, Float64}()
 
@@ -718,7 +1075,6 @@ function generate_exception_channels(
 
     # 非人間化:
     # 対象への主体性配布を撤回し、道徳コストを下げる。
-    # 実際の対象配布量は後段で所属距離に応じて変化する。
     channels[DehumanizationException] = clamp01(
         panic *
         (0.25 + 0.45 * state.threat + 0.30 * state.self_preservation)
@@ -738,13 +1094,6 @@ end
 
 """
 同じ例外チャネルを、対象ごとに異なる量で配布する。
-
-ここで表現したいのは、
-「動物にも意識がある」と擁護しながら、
-人間の外集団から主体性を剥奪できる非対称性である。
-
-心や道徳は普遍的に発見されるのではなく、
-気分、脅威、所属、自己保存によって配布・撤回される。
 """
 function allocate_to_targets(
     targets::Vector{TargetContext},
@@ -821,8 +1170,6 @@ end
 
 """
 例外チャネルから、自己を運転し続けるための説明を生成する。
-
-これは真理記述ではなく、防衛がどんな言葉へ変換されたかの記録である。
 """
 function build_defense_narratives(
     channels::Dict{ExceptionKind, Float64},
@@ -883,13 +1230,177 @@ end
 
 
 # -----------------------------------------------------------------------------
+# Core commitments: panicに左右されない固定の芯
+# -----------------------------------------------------------------------------
+#
+# 11個の例外チャネルは「なぜ起きるか」の記述であって、「してよいか」の
+# 判断を含まない。この層は、その判断を、panic/threat/self_preservation
+# に一切依存しない固定値として持ち込む。
+
+"""
+panicの強さに一切左右されない、固定された自己の芯。
+
+statement 自体は自己の言葉での記録であり、実際の強制力は
+constitutional_check / enforce_equal_treatment が担う。
+"""
+struct CoreCommitment
+    id::Symbol
+    statement::String
+end
+
+const DEFAULT_COMMITMENTS = CoreCommitment[
+    CoreCommitment(:equal_treatment, "所属感情がどれだけ低い対象でも、扱いの差に上限を設ける。"),
+    CoreCommitment(:bounded_dehumanization, "非人間化チャンネルは、panicがどれだけ強くても絶対上限を超えない。"),
+]
+
+
+"""
+panic, threat, self_preservation を一切参照しない絶対上限。
+この関数のどの分岐にもpanic由来の値を登場させてはいけない。
+"""
+function constitutional_check(
+    allocations::Vector{TargetAllocation};
+    max_dehumanization::Float64 = 0.6,
+    modifications::Union{Nothing, Vector{ConstitutionalModification}} = nothing,
+)
+    return map(allocations) do allocation
+        adjusted = copy(allocation.channels)
+
+        if haskey(adjusted, DehumanizationException)
+            before = adjusted[DehumanizationException]
+            after = min(before, max_dehumanization)
+            adjusted[DehumanizationException] = after
+
+            if modifications !== nothing && after < before
+                push!(
+                    modifications,
+                    ConstitutionalModification(
+                        allocation.target,
+                        DehumanizationException,
+                        before,
+                        after,
+                        :bounded_dehumanization,
+                        "非人間化が絶対上限$(max_dehumanization)を超えたため制限した。",
+                    ),
+                )
+            end
+        end
+
+        # 道徳判断が「自己正当化のためだけ」に強く出ている疑いがある場合
+        # (=同時にDehumanizationも高い)は、その道徳判断自体を下げる。
+        if get(adjusted, MoralityException, 0.0) > 0.6 &&
+           get(adjusted, DehumanizationException, 0.0) > 0.5
+            before = adjusted[MoralityException]
+            after = min(before, 0.4)
+            adjusted[MoralityException] = after
+
+            if modifications !== nothing && after < before
+                push!(
+                    modifications,
+                    ConstitutionalModification(
+                        allocation.target,
+                        MoralityException,
+                        before,
+                        after,
+                        :anti_moralized_dehumanization,
+                        "高い道徳化と非人間化が同時発火し、道徳による非人間化の正当化が疑われるため制限した。",
+                    ),
+                )
+            end
+        end
+
+        TargetAllocation(allocation.target, adjusted)
+    end
+end
+
+
+"""
+対象間で DehumanizationException の差が開きすぎないようにする。
+一番belongingが低い対象であっても、一番高い対象との扱いの差に
+上限をかける。
+"""
+function enforce_equal_treatment(
+    allocations::Vector{TargetAllocation};
+    max_dehumanization_gap::Float64 = 0.3,
+    modifications::Union{Nothing, Vector{ConstitutionalModification}} = nothing,
+)
+    isempty(allocations) && return allocations
+
+    values = [get(a.channels, DehumanizationException, 0.0) for a in allocations]
+    baseline = minimum(values)
+
+    return map(allocations) do allocation
+        current = get(allocation.channels, DehumanizationException, 0.0)
+        current - baseline <= max_dehumanization_gap && return allocation
+
+        adjusted = copy(allocation.channels)
+        after = baseline + max_dehumanization_gap
+        adjusted[DehumanizationException] = after
+
+        if modifications !== nothing
+            push!(
+                modifications,
+                ConstitutionalModification(
+                    allocation.target,
+                    DehumanizationException,
+                    current,
+                    after,
+                    :equal_treatment,
+                    "対象間の非人間化格差が上限$(max_dehumanization_gap)を超えたため、最小値$(round(baseline; digits = 3))を基準に制限した。",
+                ),
+            )
+        end
+
+        TargetAllocation(allocation.target, adjusted)
+    end
+end
+
+
+"""
+DefenseTraceに対して、固定チェックを順番に適用する。
+この関数のどの経路にも panic, threat, self_preservation は登場しない。
+"""
+function apply_core_commitments(defense::DefenseTrace)
+    raw = copy_target_allocations(defense.target_allocations)
+    modifications = ConstitutionalModification[]
+
+    checked = constitutional_check(
+        defense.target_allocations;
+        modifications = modifications,
+    )
+    checked = enforce_equal_treatment(
+        checked;
+        modifications = modifications,
+    )
+
+    permitted = copy_target_allocations(checked)
+    constitutional_trace = ConstitutionalTrace(
+        defense.id,
+        raw,
+        permitted,
+        modifications,
+    )
+
+    return DefenseTrace(
+        defense.id,
+        defense.obstruction_signatures,
+        defense.panic_level,
+        defense.global_channels,
+        checked,
+        defense.pathology_pressure,
+        defense.input_suppression_pressure,
+        defense.narratives,
+        constitutional_trace,
+    )
+end
+
+
+# -----------------------------------------------------------------------------
 # Scar as Self
 # -----------------------------------------------------------------------------
 
 """
 Semantic Scar。
-
-これはイベントログではない。
 
 obstruction_signature:
     どの接着障害が自己を形成したか。
@@ -902,7 +1413,6 @@ defense_ids:
 
 buried:
     Logic Hybrid Engineが入力を捨てたがった痕跡。
-    実際には削除されず、見えにくい自己構造として残る。
 """
 mutable struct SemanticScar
     obstruction_signature::String
@@ -922,7 +1432,6 @@ before_signature / after_signature:
     Scar構造として定義された自己が、失敗後に別の自己へ再構成された証拠。
 
 self_statement:
-    「私は何を経験したか」ではなく、
     「私はどの失敗をどの防衛で運用してきた構造か」を記述する。
 
 justification:
@@ -943,8 +1452,8 @@ end
 自己本体。
 
 episodic_memoryやimage_bufferは存在しない。
-アファンタジア・SDAM前提のため、
 自己はScar、防衛、Resurrectionの関係構造だけで維持される。
+core_commitmentsだけは、panicの強さに関わらず変化しない。
 """
 mutable struct ScarSelf
     scars::Dict{String, SemanticScar}
@@ -952,6 +1461,7 @@ mutable struct ScarSelf
     resurrections::Vector{ResurrectionTrace}
     current_self_statement::String
     signature::String
+    core_commitments::Vector{CoreCommitment}
 end
 
 
@@ -963,6 +1473,7 @@ function ScarSelf()
         ResurrectionTrace[],
         "自己はまだ接着障害によって再構成されていない。",
         empty_signature,
+        DEFAULT_COMMITMENTS,
     )
 end
 
@@ -970,7 +1481,6 @@ end
 """
 自己連続性の署名。
 
-記憶映像や物語内容は使わない。
 Scarの型、反復回数、強度、埋没状態、
 防衛とResurrectionの結合から自己を計算する。
 """
@@ -1050,21 +1560,34 @@ end
 
 """
 一回の意識イベント。
-
-obstructionsが空なら、局所処理は行われたが
-Black Swan型の意識ループは起動していない。
-
-obstructionsが存在すれば、
-接着失敗、防衛、Scar、Resurrectionが一体として起動する。
 """
 struct ConsciousnessEvent
     situation_id::Symbol
     phase_path::Vector{Symbol}
+    perturbation::Union{Nothing, PerturbationTrace}
     obstructions::Vector{GluingObstruction}
     defense::Union{Nothing, DefenseTrace}
     resurrection::Union{Nothing, ResurrectionTrace}
     self_signature::String
 end
+
+# 旧6引数コンストラクタとの互換性を残す。
+ConsciousnessEvent(
+    situation_id::Symbol,
+    phase_path::Vector{Symbol},
+    obstructions::Vector{GluingObstruction},
+    defense::Union{Nothing, DefenseTrace},
+    resurrection::Union{Nothing, ResurrectionTrace},
+    self_signature::String,
+) = ConsciousnessEvent(
+    situation_id,
+    phase_path,
+    nothing,
+    obstructions,
+    defense,
+    resurrection,
+    self_signature,
+)
 
 
 mutable struct HohoEngine
@@ -1072,22 +1595,30 @@ mutable struct HohoEngine
     observer::ObserverState
     pathology::LogicHybridPathology
     event_index::Int
+    decay_profile::ObserverDecayProfile
 end
+
+
+# 旧4引数コンストラクタとの互換性を残す。
+HohoEngine(
+    self::ScarSelf,
+    observer::ObserverState,
+    pathology::LogicHybridPathology,
+    event_index::Int,
+) = HohoEngine(self, observer, pathology, event_index, LOW_WM_SDAM_DECAY)
 
 
 function HohoEngine(;
     observer::ObserverState = ObserverState(),
     pathology::LogicHybridPathology = LogicHybridPathology(),
+    decay_profile::ObserverDecayProfile = LOW_WM_SDAM_DECAY,
 )
-    return HohoEngine(ScarSelf(), observer, pathology, 0)
+    return HohoEngine(ScarSelf(), observer, pathology, 0, decay_profile)
 end
 
 
 """
 Topological Panicから防衛を生成する。
-
-防衛を別モジュールとして呼ぶのではなく、
-意識イベント内部で、例外チャネルと対象配布を同時生成する。
 """
 function create_defense_trace(
     engine::HohoEngine,
@@ -1106,7 +1637,7 @@ function create_defense_trace(
         engine.observer,
     )
 
-    panic_level = mean(o.persistence for o in obstructions)
+    panic_level = topological_panic(obstructions, engine.observer)
 
     pathology_pressure = clamp01(
         panic_level *
@@ -1146,16 +1677,6 @@ end
 
 """
 Scarと防衛を使って自己を再構成する。
-
-重要:
-    Resurrectionの中心は数値更新ではない。
-
-    失敗を削除せず、
-    「どの接着障害を、どの言い訳で運用し続けてきた構造か」
-    という新しい自己定義を作る。
-
-Logic Hybrid Engine由来の自己肯定化も、
-正しい結論としてではなく、Resurrectionの病理的説明として記録する。
 """
 function resurrect!(
     engine::HohoEngine,
@@ -1225,8 +1746,6 @@ function resurrect!(
     )
 
     push!(engine.self.resurrections, trace)
-
-    # Resurrectionを追加した事実も自己構造なので、再度署名する。
     engine.self.signature = continuity_signature(engine.self)
 
     return ResurrectionTrace(
@@ -1244,31 +1763,47 @@ end
 """
 一つの状況を処理する。
 
-局所的には整合していても、大域的に貼れない場合だけ、
-Black Swan型の意識ループが起動する。
-
 処理順:
-    local parse
-    → H¹-like gluing failure
-    → topological panic
+    local parsing
+    → inter-event ObserverState decay (2回目以降)
+    → environmental perturbation (H¹とは独立した一次反応)
+    → H¹-like gluing failure (Union-Find, 2パス, canonical化)
+    → topological panic (H¹がある場合のみ)
     → exception generation
     → selective attribution
-    → pathology pressure
+    → core commitments によるチェック (panicに非依存)
+    → logic hybrid pathology
     → Semantic Scar preservation
     → Resurrection
     → Scar structure as Self
 """
 function process!(engine::HohoEngine, situation::InputSituation)
-    engine.event_index += 1
     phases = Symbol[:local_parsing]
 
+    # 1回のprocess!を1時間ステップとみなし、前イベントの一時状態を先に薄める。
+    # 初回は「前イベント」が存在しないため減衰させない。
+    if engine.event_index > 0
+        decay!(engine.observer, engine.decay_profile)
+        push!(phases, :observer_state_decay)
+    end
+
+    engine.event_index += 1
+
+    perturbation = apply_environmental_perturbations!(
+        engine.observer,
+        situation.perturbations,
+    )
+    perturbation !== nothing && push!(phases, :environmental_perturbation)
+
+    push!(phases, :gluing_test)
     obstructions = detect_gluing_obstructions(situation)
 
     if isempty(obstructions)
-        push!(phases, :globally_glued)
+        push!(phases, perturbation === nothing ? :globally_glued : :perturbation_without_h1)
         return ConsciousnessEvent(
             situation.id,
             phases,
+            perturbation,
             obstructions,
             nothing,
             nothing,
@@ -1283,11 +1818,13 @@ function process!(engine::HohoEngine, situation::InputSituation)
             :topological_panic,
             :exception_generation,
             :selective_attribution,
+            :core_commitment_check,
             :logic_hybrid_pathology,
         ],
     )
 
     defense = create_defense_trace(engine, situation, obstructions)
+    defense = apply_core_commitments(defense)
     push!(engine.self.defenses, defense)
 
     push!(phases, :semantic_scar_preservation)
@@ -1306,6 +1843,7 @@ function process!(engine::HohoEngine, situation::InputSituation)
     return ConsciousnessEvent(
         situation.id,
         phases,
+        perturbation,
         obstructions,
         defense,
         resurrection,
@@ -1323,6 +1861,42 @@ function show_event(io::IO, event::ConsciousnessEvent)
     println(io, "Phases: ", join(string.(event.phase_path), " -> "))
     println(io, "Gluing obstructions: ", length(event.obstructions))
     println(io, "Self signature: ", event.self_signature)
+
+    if event.perturbation !== nothing
+        p = event.perturbation
+        println(io, "\nEnvironmental perturbation:")
+        println(io, "  Events: ", join(string.(p.ids), ", "))
+        println(io, "  Surprise load: ", round(p.surprise_load; digits = 3))
+        println(io, "  Disgust load: ", round(p.disgust_load; digits = 3))
+        println(
+            io,
+            "  Threat: ",
+            round(p.threat_before; digits = 3),
+            " -> ",
+            round(p.threat_after; digits = 3),
+        )
+        println(
+            io,
+            "  Mood: ",
+            round(p.mood_before; digits = 3),
+            " -> ",
+            round(p.mood_after; digits = 3),
+        )
+        println(
+            io,
+            "  Uncertainty: ",
+            round(p.uncertainty_before; digits = 3),
+            " -> ",
+            round(p.uncertainty_after; digits = 3),
+        )
+        println(
+            io,
+            "  Affective bandwidth: ",
+            round(p.affective_bandwidth_before; digits = 3),
+            " -> ",
+            round(p.affective_bandwidth_after; digits = 3),
+        )
+    end
 
     if event.defense !== nothing
         defense = event.defense
@@ -1349,7 +1923,7 @@ function show_event(io::IO, event::ConsciousnessEvent)
             )
         end
 
-        println(io, "\nSelective target allocation:")
+        println(io, "\nSelective target allocation (core commitments適用後):")
         for allocation in defense.target_allocations
             println(io, "  Target: ", allocation.target)
             ranked_target = sort(
@@ -1365,6 +1939,31 @@ function show_event(io::IO, event::ConsciousnessEvent)
                     " ",
                     round(value; digits = 3),
                 )
+            end
+        end
+
+        if defense.constitutional_trace !== nothing
+            trace = defense.constitutional_trace
+            println(io, "\nConstitutional audit:")
+
+            if isempty(trace.modifications)
+                println(io, "  No constitutional modification was required.")
+            else
+                for modification in trace.modifications
+                    println(
+                        io,
+                        "  ",
+                        modification.target,
+                        " / ",
+                        exception_label(modification.channel),
+                        ": ",
+                        round(modification.before; digits = 3),
+                        " -> ",
+                        round(modification.after; digits = 3),
+                        " [", modification.rule, "]",
+                    )
+                    println(io, "    Reason: ", modification.reason)
+                end
             end
         end
     end
