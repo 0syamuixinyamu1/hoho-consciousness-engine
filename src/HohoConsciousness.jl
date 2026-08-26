@@ -14,7 +14,7 @@ _core_source = replace(
 )
 _core_source = replace(
     _core_source,
-    r"\nend\s*\z" => "\n";
+    r"\nend\s*(?:#.*)?\s*\z" => "\n";
     count = 1,
 )
 
