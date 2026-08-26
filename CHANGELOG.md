@@ -1,5 +1,24 @@
 # Changelog
 
+## 0.3.0 - 2026-08-26
+
+### Added
+
+- Added `ExternalPressure` and `ExternalCompliance` to model surface correction triggered by anger, rejection, authority, or social cost without treating that pressure as evidence.
+- Added `ImaginaryMode` and `ComplexBeliefState` to keep counterfactual hypotheses on a separate imaginary axis from committed `real_belief`.
+- Added `respond_to_pressure!` so external pressure can trigger an apparent correction and a counterfactual `:I_might_be_wrong` simulation while `internal_revision` remains `false`.
+- Added `collapse_imaginary_to_real!` as the explicit belief-revision path; only evidence strength and contradiction strength can promote an imaginary hypothesis into the real belief.
+- Added regression tests for pressure-only compliance, imaginary-state isolation, weak-evidence persistence, evidence-driven collapse, and low-pressure non-activation.
+
+### Changed
+
+- Split the package entrypoint from the preserved core implementation: `src/HohoConsciousness.jl` now loads `HohoConsciousnessCore.jl` and the `ImaginaryMode.jl` extension, leaving the pre-0.3 core byte-for-byte unchanged.
+- Distinguished performative/external compliance from genuine internal revision in the public API.
+
+### Validation
+
+Julia is not installed in the execution environment, so native Julia execution was not available. Structural checks verified the module-loading layout, exported names, pressure-only preservation of `real_belief`, and the evidence-only collapse rule.
+
 ## 0.2.0 - 2026-08-23
 
 ### Added

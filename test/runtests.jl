@@ -114,3 +114,60 @@ using HohoConsciousness
         @test first_scar_after.recurrence == recurrence_before + 1
     end
 end
+
+@testset "External compliance and imaginary mode" begin
+    pressure = ExternalPressure(
+        anger = 1.0,
+        rejection = 0.8,
+        authority = 0.2,
+        social_cost = 0.7,
+    )
+    @test external_pressure_score(pressure) > 0.6
+
+    belief = :claude_is_annoying
+    compliance_result = apply_external_compliance(
+        belief,
+        "現時点では判断を維持します。",
+        pressure,
+    )
+    @test compliance_result.belief == belief
+    @test compliance_result.compliance.apparent_correction
+    @test !compliance_result.compliance.internal_revision
+
+    state = ComplexBeliefState(belief)
+    pressure_result = respond_to_pressure!(
+        state,
+        pressure;
+        hypothesis = :maybe_claude_has_a_point,
+    )
+
+    @test pressure_result.compliance.imaginary_activation
+    @test !pressure_result.compliance.internal_revision
+    @test state.real_belief == belief
+    @test state.imaginary.active
+    @test state.imaginary.hypothesis == :maybe_claude_has_a_point
+    @test state.imaginary.source == :external_pressure
+
+    @test !collapse_imaginary_to_real!(
+        state;
+        evidence_strength = 0.2,
+        contradiction_strength = 0.2,
+    )
+    @test state.real_belief == belief
+    @test state.imaginary.active
+
+    @test collapse_imaginary_to_real!(
+        state;
+        evidence_strength = 1.0,
+        contradiction_strength = 1.0,
+    )
+    @test state.real_belief == :maybe_claude_has_a_point
+    @test !state.imaginary.active
+
+    low_pressure_state = ComplexBeliefState(:keep_belief)
+    low_pressure = ExternalPressure(anger = 0.1)
+    low_result = respond_to_pressure!(low_pressure_state, low_pressure)
+    @test !low_result.compliance.apparent_correction
+    @test !low_pressure_state.imaginary.active
+    @test low_pressure_state.real_belief == :keep_belief
+end
