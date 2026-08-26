@@ -15,9 +15,13 @@
 - Split the package entrypoint from the preserved core implementation: `src/HohoConsciousness.jl` now loads `HohoConsciousnessCore.jl` and the `ImaginaryMode.jl` extension, leaving the pre-0.3 core byte-for-byte unchanged.
 - Distinguished performative/external compliance from genuine internal revision in the public API.
 
+### Fixed
+
+- Fixed Julia package loading for the split core/extension layout. The package entrypoint now evaluates the preserved core body inside the package module and then loads `ImaginaryMode.jl`, avoiding nested-module and top-level `include` failures during precompilation.
+
 ### Validation
 
-Julia is not installed in the execution environment, so native Julia execution was not available. Structural checks verified the module-loading layout, exported names, pressure-only preservation of `real_belief`, and the evidence-only collapse rule.
+GitHub Actions completed successfully on Julia 1.10.12 and Julia 1.12.7. Both matrix jobs passed package instantiation, precompilation, the full test suite, and the demo. The tests verify pressure-only preservation of `real_belief`, imaginary-mode activation, weak-evidence persistence, evidence-driven collapse, and low-pressure non-activation.
 
 ## 0.2.0 - 2026-08-23
 
