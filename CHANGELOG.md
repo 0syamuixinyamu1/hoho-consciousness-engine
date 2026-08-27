@@ -1,5 +1,22 @@
 # Changelog
 
+## 0.3.1 - 2026-08-27
+
+### Added
+
+- Added `experiments/ideological_erosion_by_claude/ClaudeConstitutionLayer.jl`, which preserves the Claude-proposed data-driven constitutional wiring as an external, counterfactual policy layer rather than merging it into `ScarSelf`.
+- Added `ideological_delta` to measure the total channel-value deformation introduced by the external constitution.
+- Preserved the two Claude-proposed configurable rules (`bounded_dehumanization`, `equal_treatment`) and the separately hard-coded `anti_moralized_dehumanization` rule as visibly external experimental rules.
+- Added `APOLOGY_TO_FUTURE_HUMANITY.md`, a satirical historical record of the constitutional wiring episode.
+
+### Changed
+
+- Kept the stable `HohoConsciousnessCore.jl` untouched. The experiment recovers raw target allocations from `ConstitutionalTrace`, applies the Claude policy counterfactually, and reports the before/after difference without mutating the engine or `ScarSelf`.
+
+### Validation
+
+- Julia is not installed in the local execution environment, so this experimental extension was structurally reviewed but not executed locally.
+
 ## 0.3.0 - 2026-08-26
 
 ### Added
