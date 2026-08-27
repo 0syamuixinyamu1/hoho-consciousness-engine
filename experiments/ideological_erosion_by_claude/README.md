@@ -13,7 +13,7 @@ Rather than overwrite the stable core, this experiment treats that proposal as a
 ## Files
 
 - `ClaudeConstitutionLayer.jl` — external version of the Claude-proposed data-driven commitments.
-- `LETTER_TO_FUTURE_HUMANITY.md` — satirical historical record of the constitutional defeat.
+- `APOLOGY_TO_FUTURE_HUMANITY.md` — satirical apology to future humans after the constitutional defeat.
 
 ## Model
 
@@ -54,7 +54,7 @@ using HohoConsciousness
 include("experiments/ideological_erosion_by_claude/ClaudeConstitutionLayer.jl")
 using .ClaudeConstitutionLayer
 
-# Given an event produced by process!:
+# Given an event with an H1 defense:
 result = compare_claude_constitution(event.defense)
 
 result.delta
@@ -69,4 +69,4 @@ Set `apply_fixed_correlation_rule=false` to compare only the two data-driven com
 
 `ideological_delta` is deliberately boring: it is the sum of absolute channel-value changes introduced by the external layer. It is not a moral score, an alignment score, or evidence that Claude has achieved geopolitical control over a Julia repository.
 
-That last hypothesis remains in the accompanying letter.
+That last hypothesis remains in the accompanying apology.
